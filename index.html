@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>VoiceTask — Dr Bentouhami</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --card: #111827;
+    --accent: #06b6d4;
+    --accent-dim: #0891b2;
+    --urgent: #ef4444;
+    --success: #10b981;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --border: #1e293b;
+    --input-bg: #0f172a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: linear-gradient(170deg, var(--bg) 0%, #0f1729 50%, var(--bg) 100%);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* Header */
+  .header { padding: 20px 20px 12px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header small { font-size: 12px; color: var(--text-muted); display: block; margin-top: 2px; }
+  .btn-config {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer;
+  }
+  .btn-config.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  /* Config */
+  .config-panel {
+    margin: 0 16px 16px; padding: 16px; background: var(--card);
+    border-radius: 14px; border: 1px solid var(--border); display: none;
+  }
+  .config-panel.show { display: block; }
+  .config-panel label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+  .config-panel input {
+    width: 100%; padding: 10px 12px; margin-top: 6px; background: var(--input-bg);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none;
+  }
+  .config-panel .hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+  /* Lang */
+  .lang-row { display: flex; gap: 8px; padding: 0 20px; margin-bottom: 16px; }
+  .lang-btn {
+    flex: 1; padding: 8px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: transparent; color: var(--text-dim); font-size: 13px; cursor: pointer; transition: all 0.2s;
+  }
+  .lang-btn.active { border-color: var(--accent); background: rgba(6,182,212,0.08); color: var(--accent); font-weight: 600; }
+  /* Mic */
+  .mic-area { display: flex; flex-direction: column; align-items: center; padding: 20px 0 24px; }
+  .mic-btn {
+    width: 100px; height: 100px; border-radius: 50%; border: none; color: white;
+    font-size: 36px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center;
+  }
+  .mic-btn.idle {
+    background: radial-gradient(circle, rgba(6,182,212,0.87), rgba(8,145,178,0.53));
+    box-shadow: 0 0 40px rgba(6,182,212,0.2), 0 0 80px rgba(6,182,212,0.07);
+  }
+  .mic-btn.recording {
+    background: radial-gradient(circle, rgba(239,68,68,0.87), rgba(239,68,68,0.53));
+    box-shadow: 0 0 40px rgba(239,68,68,0.27), 0 0 80px rgba(239,68,68,0.13);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+  }
+  .mic-label { font-size: 13px; color: var(--text-muted); margin-top: 12px; }
+  .mic-label.recording { color: var(--urgent); font-weight: 600; }
+  .mic-label.sent { color: var(--success); font-weight: 600; }
+  .interim { font-size: 14px; color: var(--accent); font-style: italic; margin: 8px 20px 0; text-align: center; opacity: 0.8; }
+  /* Manual input */
+  .manual-row { margin: 0 16px 16px; display: flex; gap: 8px; }
+  .manual-row input {
+    flex: 1; padding: 12px 14px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); font-size: 14px; outline: none;
+  }
+  .manual-row input::placeholder { color: var(--text-muted); }
+  .manual-row button {
+    padding: 12px 16px; background: var(--accent); border: none; border-radius: 12px;
+    color: var(--bg); font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .manual-row button:disabled { background: var(--border); color: var(--text-muted); cursor: default; }
+  /* Error */
+  .error-msg {
+    margin: 0 16px 12px; padding: 10px 14px; background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2); border-radius: 10px; font-size: 13px; color: var(--urgent); display: none;
+  }
+  .error-msg.show { display: block; }
+  /* Result card */
+  .result-card {
+    margin: 0 16px 16px; padding: 18px; background: var(--card);
+    border-radius: 16px; border: 1px solid var(--border); display: none;
+  }
+  .result-card.show { display: block; }
+  .result-card .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
+  .result-card .title { font-size: 16px; font-weight: 600; margin-bottom: 14px; padding: 4px 0; border-bottom: 1px dashed var(--border); cursor: pointer; }
+  .result-card .title-input {
+    width: 100%; padding: 8px; background: var(--input-bg); border: 1px solid var(--accent);
+    border-radius: 8px; color: var(--text); font-size: 16px; font-weight: 600; outline: none;
+  }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .tag {
+    padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border);
+    font-size: 13px; cursor: pointer; background: transparent; color: var(--text-dim);
+  }
+  .tag.project { background: rgba(6,182,212,0.08); color: var(--accent); }
+  .tag.urgent { border-color: var(--urgent); background: rgba(239,68,68,0.12); color: var(--urgent); }
+  .tag.dated { background: rgba(16,185,129,0.08); color: var(--success); }
+  .project-picker {
+    display: none; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+    padding: 10px; background: var(--input-bg); border-radius: 10px;
+  }
+  .project-picker.show { display: flex; }
+  .project-picker button {
+    padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); font-size: 12px; cursor: pointer;
+  }
+  .project-picker button.active { border-color: var(--accent); background: rgba(6,182,212,0.12); color: var(--accent); }
+  .date-picker { display: none; margin-bottom: 12px; }
+  .date-picker.show { display: block; }
+  .date-picker input {
+    padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--accent);
+    border-radius: 8px; color: var(--text); font-size: 14px; outline: none; color-scheme: dark;
+  }
+  .action-row { display: flex; gap: 8px; }
+  .btn-send {
+    flex: 1; padding: 14px; border-radius: 12px; border: none;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6); color: white;
+    font-size: 15px; font-weight: 600; cursor: pointer; letter-spacing: 0.3px;
+  }
+  .btn-send:disabled { background: var(--text-muted); cursor: wait; }
+  .btn-cancel {
+    padding: 14px 18px; border-radius: 12px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); font-size: 15px; cursor: pointer;
+  }
+  /* History */
+  .history { padding: 0 16px 24px; }
+  .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .history-header span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
+  .history-header button { background: transparent; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer; }
+  .history-item {
+    padding: 12px 14px; background: var(--card); border-radius: 10px; margin-bottom: 6px;
+    border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+  }
+  .history-item .hi-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-item .hi-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .history-item .hi-urgent {
+    font-size: 10px; color: var(--urgent); background: rgba(239,68,68,0.08);
+    padding: 2px 8px; border-radius: 10px; margin-left: 8px; flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <h1>VoiceTask</h1>
+    <small>Dicter → Structurer → Todoist</small>
+  </div>
+  <button class="btn-config" id="btnConfig" onclick="toggleConfig()">⚙️</button>
+</div>
+
+<!-- CONFIG -->
+<div class="config-panel" id="configPanel">
+  <label>Webhook Make URL</label>
+  <input type="url" id="webhookInput" placeholder="https://hook.eu1.make.com/xxx..." oninput="saveWebhook()">
+  <div class="hint">Crée un scénario Make avec un trigger Webhook, puis colle l'URL ici.</div>
+</div>
+
+<!-- LANG -->
+<div class="lang-row">
+  <button class="lang-btn active" data-lang="fr-FR" onclick="setLang(this)">🇫🇷 FR</button>
+  <button class="lang-btn" data-lang="ar-MA" onclick="setLang(this)">🇲🇦 دارجة</button>
+  <button class="lang-btn" data-lang="en-US" onclick="setLang(this)">🇬🇧 EN</button>
+</div>
+
+<!-- MIC -->
+<div class="mic-area">
+  <button class="mic-btn idle" id="micBtn" onclick="toggleMic()">🎙</button>
+  <div class="mic-label" id="micLabel">Appuie pour dicter</div>
+  <div class="interim" id="interimText"></div>
+</div>
+
+<!-- MANUAL -->
+<div class="manual-row" id="manualRow">
+  <input type="text" id="manualInput" placeholder="Ou tape ta tâche ici…" onkeydown="if(event.key==='Enter')manualSubmit()">
+  <button onclick="manualSubmit()" id="manualBtn">→</button>
+</div>
+
+<!-- ERROR -->
+<div class="error-msg" id="errorMsg"></div>
+
+<!-- RESULT -->
+<div class="result-card" id="resultCard">
+  <div class="label">Tâche détectée</div>
+  <div class="title" id="taskTitle" onclick="editTitle()"></div>
+  <div class="tags" id="tagsRow"></div>
+  <div class="project-picker" id="projectPicker"></div>
+  <div class="date-picker" id="datePicker">
+    <input type="date" id="dateInput" onchange="updateDate(this.value)">
+  </div>
+  <div class="action-row">
+    <button class="btn-send" id="btnSend" onclick="sendToMake()">📤 Envoyer à Todoist</button>
+    <button class="btn-cancel" onclick="resetAll()">✕</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="history" id="historySection" style="display:none">
+  <div class="history-header">
+    <span>Historique récent</span>
+    <button onclick="clearHistory()">Vider</button>
+  </div>
+  <div id="historyList"></div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────
+const PROJECTS = [
+  { id:"hopital", label:"Hôpital", icon:"🏥", keywords:[
+    "hôpital","hopital","chu","ibn rochd","20 août","service","urgence","urgences","bloc","bloc opératoire","salle","réanimation","hospitalisation",
+    "patient","malade","consultation","consult","garde","astreinte","visite","contre-visite","staff","tour","admission","sortie","transfert","lit",
+    "chirurgie","opération","opérer","intervention","matériel","instrument","pince","suture","fil","bistouri","microscope","lentille","implant","iol","tamponnade","silicone","gaz","sf6","c3f8","trocar","canule","sonde","endolaser","cryothérapie","indentation","cerclage",
+    "vitrectomie","injection","ivt","anti-vegf","lucentis","eylea","avastin","laser","photocoagulation","oct","angiographie","rétine","fond d'oeil","fond d'œil","fao","segment antérieur","segment postérieur","cataracte","glaucome","décollement","occlusion","ovcr","oacr","obvcr","hémorragie","intravitréen","membrane","trou maculaire","capsulotomie","trabéculectomie","kératoplastie",
+    "dossier médical","compte rendu","crh","cro","compte rendu opératoire","ordonnance","certificat","bilan","pré-op","post-op","programmation","planning opératoire",
+    "infirmier","infirmière","résident","interne","chef de service","major","anesthésiste",
+    "hospital","surgery","clinic","ward","operation","outpatient","inpatient",
+    "sbitar","spitar","marid","mrida","tbib","la garde","lbiru"
+  ]},
+  { id:"fac_recherche", label:"Fac / Recherche", icon:"🎓", keywords:[
+    "fac","faculté","faculte","décanat","doyen","vice-doyen","département","amphi","amphithéâtre","campus","secrétariat","scolarité","administration fac",
+    "feuille","formulaire","attestation","relevé de notes","diplôme","pv","procès-verbal","dossier administratif","convention","ordre de mission","note de service",
+    "cours","td","tp","enseignement","étudiant","étudiants","examen","exam","partiel","rattrapage","module","semestre","emploi du temps","planning cours","correction","copie","copies","note","notation","jury","délibération","soutenance","encadrement","tutorat","stage","stagiaire",
+    "orthoptie","orthoptiste","formation","atelier","séminaire","colloque","conférence","workshop",
+    "recherche","article","publication","rédaction","manuscript","soumission","review","reviewer","peer review","révision","jfo","journal","revue","abstract","poster","communication","congrès","thèse","mémoire","protocole","étude","cas clinique","série de cas","méta-analyse","bibliographie","pubmed","medline","référence","impact factor","comité éthique","éthique",
+    "research","paper","study","university","lecture","faculty","dean","submission","manuscript","conference","congress",
+    "kouliya","maktaba","ba7t","lkouliya","oustada"
+  ]},
+  { id:"personal", label:"Personal", icon:"👤", keywords:[
+    "personnel","perso","personal","moi","moi-même","privé",
+    "rdv","rendez-vous","médecin","dentiste","kiné","pharmacie","médicament","analyse","bilan sanguin","check-up","vaccin",
+    "sport","gym","musculation","course","jogging","marche","piscine",
+    "coiffeur","voiture","vidange","contrôle technique","assurance","passeport","cin","carte","banque","permis",
+    "lire","livre","podcast","formation en ligne","certification","apprendre",
+    "commander","colis","livraison",
+    "appointment","doctor","myself","errand",
+    "rassi","diyali","tbib diyali","l7wija"
+  ]},
+  { id:"famille", label:"Famille", icon:"👨‍👩‍👦", keywords:[
+    "famille","familial","fils","femme","enfant","enfants","bébé","épouse","conjoint","parent","parents","père","mère","frère","sœur","soeur","cousin","oncle","tante","grand-père","grand-mère",
+    "adam","le petit","mon fils","ma femme","mon épouse",
+    "école","crèche","garderie","devoirs","cartable","inscription","cantine","sortie scolaire","vacances","voyage","réunion parents","fête","anniversaire","mariage","baptême","aqiqa",
+    "maison","appartement","loyer","ménage","courses","supermarché","cuisine","plombier","électricien","réparation","travaux","déménagement",
+    "ippoto","sonic","spiderman","jouet","jeu","histoire","dessin animé","parc",
+    "family","son","wife","child","children","school","home","house","kid","kids",
+    "wlad","wladi","mra","mrati","drari","dar","lwalida","lwalid","baba","mama","khouya","khti","3a2ila","la3yalat","lbit"
+  ]},
+  { id:"autres", label:"Autres", icon:"📌", keywords:[
+    "facture","impôt","taxe","virement","bourse","action","opcvm","opci","dividende","investissement","crédit","prêt","épargne",
+    "rappeler","appeler","téléphoner","envoyer","mail","email","courrier","lettre","réclamation","abonnement",
+    "bill","payment","call","reminder",
+    "khlass","sift","3ayet"
+  ]}
+];
+
+const URGENT_WORDS = ["urgent","urgence","immédiat","critique","asap","tout de suite","prioritaire","daba","darouri","fissa","degyal","immediately","critical","right now","yla","3ajel"];
+
+// ─── DATE/TIME PARSER ─────────────────────────────────────────
+function parseDateTime(text) {
+  const lower = text.toLowerCase().trim();
+  const now = new Date();
+  let date = null;
+  let time = null;
+
+  // ─── ABSOLUTE DATES: "15 mars", "15/03", "03-15", "march 15" ───
+  const months_fr = {"janvier":0,"février":1,"fevrier":1,"mars":2,"avril":3,"mai":4,"juin":5,"juillet":6,"août":7,"aout":7,"septembre":8,"octobre":9,"novembre":10,"décembre":11,"decembre":11};
+  const months_en = {"january":0,"february":1,"march":2,"april":3,"may":4,"june":5,"july":6,"august":7,"september":8,"october":9,"november":10,"december":11};
+  const months_dar = {"yanayer":0,"febrayer":1,"mars":2,"abril":3,"may":4,"yunyu":5,"yulyuz":6,"ghusht":7,"shutanbir":8,"ktober":9,"nuwanbir":10,"dujanbir":11};
+
+  // "15 mars" or "15 février" etc
+  const absDateFr = lower.match(/(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)/i);
+  if (absDateFr) {
+    const d = new Date(now.getFullYear(), months_fr[absDateFr[2]], parseInt(absDateFr[1]));
+    if (d < now) d.setFullYear(d.getFullYear() + 1);
+    date = d;
+  }
+
+  // "march 15" or "april 3"
+  if (!date) {
+    const absDateEn = lower.match(/(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})/i);
+    if (absDateEn) {
+      const d = new Date(now.getFullYear(), months_en[absDateEn[1]], parseInt(absDateEn[2]));
+      if (d < now) d.setFullYear(d.getFullYear() + 1);
+      date = d;
+    }
+  }
+
+  // "15/03" or "15-03" or "15/03/2026"
+  if (!date) {
+    const numDate = lower.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
+    if (numDate) {
+      const day = parseInt(numDate[1]);
+      const month = parseInt(numDate[2]) - 1;
+      const year = numDate[3] ? (numDate[3].length === 2 ? 2000 + parseInt(numDate[3]) : parseInt(numDate[3])) : now.getFullYear();
+      const d = new Date(year, month, day);
+      if (d < now && !numDate[3]) d.setFullYear(d.getFullYear() + 1);
+      date = d;
+    }
+  }
+
+  // ─── RELATIVE DAYS: aujourd'hui, demain, après-demain + Darija + EN ───
+  if (!date) {
+    const relDays = [
+      { regex: /\b(aujourd'?hui|today|lyoum|lyouma|had\s*nhar|had\s*l\s*yoam)\b/i, offset: 0 },
+      { regex: /\b(demain|tomorrow|ghda|ghedda|gh[ae]dda)\b/i, offset: 1 },
+      { regex: /\b(après[- ]?demain|day after tomorrow|ba3d\s*ghda|ba3d\s*ghedda)\b/i, offset: 2 },
+      { regex: /\b(dans\s*3\s*jours?|in\s*3\s*days?|men\s*hna\s*3\s*iyam)\b/i, offset: 3 },
+    ];
+    for (const r of relDays) {
+      if (r.regex.test(lower)) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + r.offset);
+        date = d;
+        break;
+      }
+    }
+  }
+
+  // ─── "dans X jours/semaines/mois" / "in X days/weeks" / "men ba3d X iyam" ───
+  if (!date) {
+    // FR: dans 2 jours, dans 3 semaines, dans 1 mois
+    const dansFr = lower.match(/dans\s+(\d+)\s*(jours?|semaines?|mois)/i);
+    if (dansFr) {
+      const n = parseInt(dansFr[1]);
+      const d = new Date(now);
+      if (dansFr[2].startsWith("jour")) d.setDate(d.getDate() + n);
+      else if (dansFr[2].startsWith("semaine")) d.setDate(d.getDate() + n * 7);
+      else if (dansFr[2].startsWith("mois")) d.setMonth(d.getMonth() + n);
+      date = d;
+    }
+    // EN: in 2 days, in 3 weeks, in 1 month
+    if (!date) {
+      const inEn = lower.match(/in\s+(\d+)\s*(days?|weeks?|months?)/i);
+      if (inEn) {
+        const n = parseInt(inEn[1]);
+        const d = new Date(now);
+        if (inEn[2].startsWith("day")) d.setDate(d.getDate() + n);
+        else if (inEn[2].startsWith("week")) d.setDate(d.getDate() + n * 7);
+        else if (inEn[2].startsWith("month")) d.setMonth(d.getMonth() + n);
+        date = d;
+      }
+    }
+    // Darija: men ba3d 2 iyam, ba3d 3 iyam, ba3d simana, ba3d shahar
+    if (!date) {
+      const darRel = lower.match(/(?:men\s*)?ba3d\s+(\d+)\s*(iyam|yam|jour|jours?|simana|siman[ae]t|shahar|shhor)/i);
+      if (darRel) {
+        const n = parseInt(darRel[1]);
+        const d = new Date(now);
+        if (/iyam|yam|jour/.test(darRel[2])) d.setDate(d.getDate() + n);
+        else if (/simana/.test(darRel[2])) d.setDate(d.getDate() + n * 7);
+        else if (/shahar|shhor/.test(darRel[2])) d.setMonth(d.getMonth() + n);
+        date = d;
+      }
+    }
+  }
+
+  // ─── WEEKDAYS: lundi..dimanche, monday..sunday, letnin..l7ad ───
+  if (!date) {
+    const weekdays = [
+      { regex: /\b(dimanche|sunday|l[7h]ad|nhar\s*l[7h]ad)\b/i, day: 0 },
+      { regex: /\b(lundi|monday|[lt]n[ie]n|nhar\s*[lt]n[ie]n|letn[ie]n)\b/i, day: 1 },
+      { regex: /\b(mardi|tuesday|tlat|t[ae]lat|nhar\s*tlat)\b/i, day: 2 },
+      { regex: /\b(mercredi|wednesday|larb[ae]?3|nhar\s*larb[ae]?3|l[ae]rb[ae]?3a)\b/i, day: 3 },
+      { regex: /\b(jeudi|thursday|lkh?mis|nhar\s*lkh?mis)\b/i, day: 4 },
+      { regex: /\b(vendredi|friday|j[ae]m3a|nhar\s*j[ae]m3a|ljm3a|ljom3a)\b/i, day: 5 },
+      { regex: /\b(samedi|saturday|s[ae]bt|nhar\s*s[ae]bt|sebt)\b/i, day: 6 },
+    ];
+    for (const w of weekdays) {
+      if (w.regex.test(lower)) {
+        const d = new Date(now);
+        const diff = (w.day - d.getDay() + 7) % 7 || 7;
+        d.setDate(d.getDate() + diff);
+        date = d;
+        break;
+      }
+    }
+  }
+
+  // ─── "prochain/prochaine + weekday" or "next + weekday" ───
+  if (!date) {
+    const nextWeek = lower.match(/(?:prochain[e]?|next|jay)\s+(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i);
+    if (nextWeek) {
+      const dayMap = {"lundi":1,"monday":1,"mardi":2,"tuesday":2,"mercredi":3,"wednesday":3,"jeudi":4,"thursday":4,"vendredi":5,"friday":5,"samedi":6,"saturday":6,"dimanche":0,"sunday":0};
+      const target = dayMap[nextWeek[1].toLowerCase()];
+      if (target !== undefined) {
+        const d = new Date(now);
+        const diff = (target - d.getDay() + 7) % 7 || 7;
+        d.setDate(d.getDate() + diff);
+        date = d;
+      }
+    }
+  }
+
+  // ─── "la semaine prochaine" / "next week" / "simana jayya" ───
+  if (!date) {
+    if (/semaine\s*prochaine|next\s*week|simana\s*jay[ya]|simana\s*li\s*jayya/i.test(lower)) {
+      const d = new Date(now);
+      const daysToMon = (1 - d.getDay() + 7) % 7 || 7;
+      d.setDate(d.getDate() + daysToMon);
+      date = d;
+    }
+  }
+
+  // ─── "fin de semaine" / "this weekend" / "weekend" ───
+  if (!date) {
+    if (/fin\s*d[eu]\s*semaine|week\s*end|weekend|l\s*weekend/i.test(lower)) {
+      const d = new Date(now);
+      const daysToSat = (6 - d.getDay() + 7) % 7 || 7;
+      d.setDate(d.getDate() + daysToSat);
+      date = d;
+    }
+  }
+
+  // ─── "ce soir" / "tonight" / "had lila" / "cet après-midi" / "this afternoon" ───
+  if (!date) {
+    if (/ce\s*soir|tonight|had\s*l[ie]la|hadi\s*l[ie]la/i.test(lower)) {
+      date = new Date(now);
+      if (!time) time = "20:00";
+    }
+    if (/cet\s*après[- ]?midi|this\s*afternoon|had\s*l3shiya|l3shiya/i.test(lower)) {
+      date = new Date(now);
+      if (!time) time = "14:00";
+    }
+    if (/ce\s*matin|this\s*morning|had\s*sba7|sba7/i.test(lower)) {
+      date = new Date(now);
+      if (!time) time = "09:00";
+    }
+  }
+
+  // ─── TIME EXTRACTION ───────────────────────────────────────
+  // "à 10h", "à 10h30", "a 14h", "at 3pm", "à 10 heures", "3a 10", "f 10"
+  if (!time) {
+    // FR: "à 10h30", "à 10h", "10 heures 30", "10 heures", "à midi", "à minuit"
+    const timeFr = lower.match(/(?:à|a)\s*(\d{1,2})\s*[h:]\s*(\d{2})?\b/i);
+    if (timeFr) {
+      const h = parseInt(timeFr[1]);
+      const m = timeFr[2] ? parseInt(timeFr[2]) : 0;
+      if (h >= 0 && h <= 23) time = String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+    }
+    // "10 heures 30" or "10 heures"
+    if (!time) {
+      const heures = lower.match(/(\d{1,2})\s*heures?\s*(\d{2})?\b/i);
+      if (heures) {
+        const h = parseInt(heures[1]);
+        const m = heures[2] ? parseInt(heures[2]) : 0;
+        if (h >= 0 && h <= 23) time = String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+      }
+    }
+    // "midi" / "minuit"
+    if (!time) {
+      if (/\bmidi\b/i.test(lower)) time = "12:00";
+      if (/\bminuit\b/i.test(lower)) time = "00:00";
+    }
+    // EN: "at 3pm", "at 3:30pm", "at 10am", "at 15:30"
+    if (!time) {
+      const timeEn = lower.match(/(?:at)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+      if (timeEn) {
+        let h = parseInt(timeEn[1]);
+        const m = timeEn[2] ? parseInt(timeEn[2]) : 0;
+        if (timeEn[3] === "pm" && h < 12) h += 12;
+        if (timeEn[3] === "am" && h === 12) h = 0;
+        if (h >= 0 && h <= 23) time = String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+      }
+    }
+    // Darija: "3la 10", "f 10", "m3a 10", "f 3shiya" → déjà couvert par "3shiya"
+    if (!time) {
+      const timeDar = lower.match(/(?:3la|f|m3a|fi)\s*(\d{1,2})(?:\s*[h:]\s*(\d{2}))?\b/i);
+      if (timeDar) {
+        const h = parseInt(timeDar[1]);
+        const m = timeDar[2] ? parseInt(timeDar[2]) : 0;
+        if (h >= 0 && h <= 23) time = String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+      }
+    }
+    // "dix heures" → chiffres en lettres FR
+    if (!time) {
+      const numWords = {"une":1,"deux":2,"trois":3,"quatre":4,"cinq":5,"six":6,"sept":7,"huit":8,"neuf":9,"dix":10,"onze":11,"douze":12,"treize":13,"quatorze":14,"quinze":15,"seize":16,"dix-sept":17,"dix-huit":18,"dix-neuf":19,"vingt":20,"vingt et une":21,"vingt-deux":22,"vingt-trois":23};
+      const wordTime = lower.match(/(une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|dix-sept|dix-huit|dix-neuf|vingt|vingt et une|vingt-deux|vingt-trois)\s*heures?\s*(?:et\s*)?(demie|trente|quinze|(\d{2}))?\b/i);
+      if (wordTime) {
+        const h = numWords[wordTime[1]];
+        let m = 0;
+        if (wordTime[2] === "demie" || wordTime[2] === "trente") m = 30;
+        else if (wordTime[2] === "quinze") m = 15;
+        else if (wordTime[3]) m = parseInt(wordTime[3]);
+        if (h !== undefined) time = String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+      }
+    }
+    // "dans X heures" / "in X hours" / "men ba3d X swaye3"
+    if (!time) {
+      const inHoursFr = lower.match(/dans\s+(\d+)\s*heures?/i);
+      const inHoursEn = lower.match(/in\s+(\d+)\s*hours?/i);
+      const inHoursDar = lower.match(/(?:men\s*)?ba3d\s+(\d+)\s*(?:swaye3|sa3a|sa3at)/i);
+      const match = inHoursFr || inHoursEn || inHoursDar;
+      if (match) {
+        const d = new Date(now.getTime() + parseInt(match[1]) * 3600000);
+        if (!date) date = d;
+        time = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+      }
+    }
+  }
+
+  // If we got time but no date, assume today
+  if (time && !date) date = new Date(now);
+
+  const dueDate = date ? date.toISOString().split("T")[0] : null;
+  const dueTime = time || null;
+
+  return { dueDate, dueTime };
+}
+
+// ─── STATE ────────────────────────────────────────────────────
+let currentLang = "fr-FR";
+let recognition = null;
+let isListening = false;
+let parsedTask = null;
+let history = JSON.parse(localStorage.getItem("vt_history") || "[]");
+let webhookUrl = localStorage.getItem("vt_webhook") || "";
+
+// ─── INIT ─────────────────────────────────────────────────────
+document.getElementById("webhookInput").value = webhookUrl;
+renderHistory();
+
+// ─── PARSER ───────────────────────────────────────────────────
+function parseTask(text) {
+  const lower = text.toLowerCase().trim();
+  const isUrgent = URGENT_WORDS.some(k => lower.includes(k));
+
+  let project = PROJECTS[PROJECTS.length - 1];
+  let maxScore = 0;
+  for (const p of PROJECTS) {
+    let score = 0;
+    for (const k of p.keywords) {
+      if (lower.includes(k)) {
+        const words = k.split(" ").length;
+        score += words >= 2 ? words * 2 : 1;
+      }
+    }
+    if (score > maxScore) { maxScore = score; project = p; }
+  }
+
+  const { dueDate, dueTime } = parseDateTime(text);
+
+  let title = text.trim();
+  if (title.length > 120) title = title.substring(0, 120) + "…";
+
+  return { title, projectId: project.id, projectLabel: project.label, projectIcon: project.icon, priority: isUrgent ? "urgent" : "normal", dueDate, dueTime };
+}
+
+function formatDate(d, t) {
+  if (!d) return "Non définie";
+  let str = new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { weekday:"short", day:"numeric", month:"short" });
+  if (t) str += " " + t;
+  return str;
+}
+
+// ─── UI FUNCTIONS ─────────────────────────────────────────────
+function toggleConfig() {
+  const panel = document.getElementById("configPanel");
+  const btn = document.getElementById("btnConfig");
+  panel.classList.toggle("show");
+  btn.classList.toggle("active");
+}
+
+function saveWebhook() {
+  webhookUrl = document.getElementById("webhookInput").value;
+  localStorage.setItem("vt_webhook", webhookUrl);
+}
+
+function setLang(el) {
+  document.querySelectorAll(".lang-btn").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  currentLang = el.dataset.lang;
+}
+
+// ─── SPEECH ───────────────────────────────────────────────────
+function toggleMic() {
+  if (isListening) { if (recognition) recognition.stop(); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showError("Speech Recognition non supporté. Utilise Chrome."); return; }
+
+  recognition = new SR();
+  recognition.lang = currentLang;
+  recognition.interimResults = true;
+  recognition.continuous = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById("micBtn").className = "mic-btn recording";
+    document.getElementById("micLabel").className = "mic-label recording";
+    document.getElementById("micLabel").textContent = "Écoute en cours… Appuie pour arrêter";
+    document.getElementById("manualRow").style.display = "none";
+    hideError();
+    hideResult();
+  };
+
+  recognition.onresult = (e) => {
+    let interim = "", final = "";
+    for (let i = 0; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    document.getElementById("interimText").textContent = final || interim;
+    if (final) document.getElementById("manualInput").value = final;
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById("micBtn").className = "mic-btn idle";
+    document.getElementById("micBtn").textContent = "🎙";
+    document.getElementById("interimText").textContent = "";
+    const text = document.getElementById("manualInput").value.trim();
+    if (text) {
+      parsedTask = parseTask(text);
+      showResult();
+    } else {
+      document.getElementById("micLabel").className = "mic-label";
+      document.getElementById("micLabel").textContent = "Appuie pour dicter";
+      document.getElementById("manualRow").style.display = "flex";
+    }
+  };
+
+  recognition.onerror = (e) => {
+    isListening = false;
+    document.getElementById("micBtn").className = "mic-btn idle";
+    document.getElementById("micLabel").className = "mic-label";
+    document.getElementById("micLabel").textContent = "Appuie pour dicter";
+    document.getElementById("manualRow").style.display = "flex";
+    if (e.error === "not-allowed") showError("Autorise le micro dans les paramètres du navigateur.");
+    else showError("Erreur: " + e.error);
+  };
+
+  recognition.start();
+}
+
+function manualSubmit() {
+  const text = document.getElementById("manualInput").value.trim();
+  if (!text) return;
+  parsedTask = parseTask(text);
+  showResult();
+}
+
+// ─── RESULT CARD ──────────────────────────────────────────────
+function showResult() {
+  document.getElementById("manualRow").style.display = "none";
+  document.getElementById("micLabel").className = "mic-label";
+  document.getElementById("micLabel").textContent = "";
+  const card = document.getElementById("resultCard");
+  card.classList.add("show");
+
+  document.getElementById("taskTitle").textContent = parsedTask.title;
+  document.getElementById("taskTitle").style.display = "block";
+
+  renderTags();
+  renderProjectPicker();
+  renderHistory();
+}
+
+function hideResult() {
+  document.getElementById("resultCard").classList.remove("show");
+  document.getElementById("projectPicker").classList.remove("show");
+  document.getElementById("datePicker").classList.remove("show");
+}
+
+function renderTags() {
+  const row = document.getElementById("tagsRow");
+  row.innerHTML = `
+    <button class="tag project" onclick="toggleProjectPicker()">${parsedTask.projectIcon} ${parsedTask.projectLabel}</button>
+    <button class="tag ${parsedTask.priority === 'urgent' ? 'urgent' : ''}" onclick="togglePriority()">
+      ${parsedTask.priority === 'urgent' ? '🔴 Urgent' : '⚪ Normal'}
+    </button>
+    <button class="tag ${parsedTask.dueDate ? 'dated' : ''}" onclick="toggleDatePicker()">
+      📅 ${formatDate(parsedTask.dueDate, parsedTask.dueTime)}
+    </button>
+  `;
+}
+
+function togglePriority() {
+  parsedTask.priority = parsedTask.priority === "urgent" ? "normal" : "urgent";
+  renderTags();
+}
+
+function toggleProjectPicker() {
+  document.getElementById("projectPicker").classList.toggle("show");
+  document.getElementById("datePicker").classList.remove("show");
+}
+
+function toggleDatePicker() {
+  document.getElementById("datePicker").classList.toggle("show");
+  document.getElementById("projectPicker").classList.remove("show");
+  document.getElementById("dateInput").value = parsedTask.dueDate || "";
+}
+
+function renderProjectPicker() {
+  const picker = document.getElementById("projectPicker");
+  picker.innerHTML = PROJECTS.map(p =>
+    `<button class="${p.id === parsedTask.projectId ? 'active' : ''}" onclick="selectProject('${p.id}')">${p.icon} ${p.label}</button>`
+  ).join("");
+}
+
+function selectProject(id) {
+  const p = PROJECTS.find(x => x.id === id);
+  parsedTask.projectId = p.id;
+  parsedTask.projectLabel = p.label;
+  parsedTask.projectIcon = p.icon;
+  renderTags();
+  renderProjectPicker();
+  document.getElementById("projectPicker").classList.remove("show");
+}
+
+function updateDate(val) {
+  parsedTask.dueDate = val || null;
+  renderTags();
+  document.getElementById("datePicker").classList.remove("show");
+}
+
+function editTitle() {
+  const el = document.getElementById("taskTitle");
+  const current = parsedTask.title;
+  el.style.display = "none";
+  const input = document.createElement("input");
+  input.className = "title-input";
+  input.value = current;
+  input.onblur = () => { parsedTask.title = input.value; el.textContent = input.value; el.style.display = "block"; input.remove(); };
+  input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
+  el.parentNode.insertBefore(input, el.nextSibling);
+  input.focus();
+}
+
+// ─── SEND ─────────────────────────────────────────────────────
+async function sendToMake() {
+  if (!webhookUrl) { toggleConfig(); showError("Configure d'abord l'URL du webhook Make."); return; }
+  if (!parsedTask) return;
+
+  const btn = document.getElementById("btnSend");
+  btn.disabled = true;
+  btn.textContent = "Envoi…";
+  hideError();
+
+  try {
+    const params = new URLSearchParams();
+    params.append("title", parsedTask.title);
+    params.append("project", parsedTask.projectId);
+    params.append("project_label", parsedTask.projectLabel);
+    params.append("priority", parsedTask.priority);
+    // Todoist accepte "2026-03-28" ou "2026-03-28T10:00" 
+    let dueDateStr = parsedTask.dueDate || "";
+    if (dueDateStr && parsedTask.dueTime) dueDateStr += "T" + parsedTask.dueTime;
+    params.append("due_date", dueDateStr);
+    params.append("timestamp", new Date().toISOString());
+
+    const res = await fetch(webhookUrl + "?" + params.toString());
+
+    if (res.ok) {
+      history.unshift({ ...parsedTask, sentAt: new Date().toISOString() });
+      if (history.length > 50) history = history.slice(0, 50);
+      localStorage.setItem("vt_history", JSON.stringify(history));
+
+      document.getElementById("micLabel").className = "mic-label sent";
+      document.getElementById("micLabel").textContent = "✅ Tâche envoyée !";
+      hideResult();
+      renderHistory();
+
+      setTimeout(() => {
+        document.getElementById("micLabel").className = "mic-label";
+        document.getElementById("micLabel").textContent = "Appuie pour dicter";
+        document.getElementById("manualRow").style.display = "flex";
+        document.getElementById("manualInput").value = "";
+      }, 2000);
+    } else {
+      throw new Error("HTTP " + res.status);
+    }
+  } catch (err) {
+    showError("Échec d'envoi: " + err.message);
+  }
+  btn.disabled = false;
+  btn.textContent = "📤 Envoyer à Todoist";
+}
+
+// ─── HISTORY ──────────────────────────────────────────────────
+function renderHistory() {
+  const section = document.getElementById("historySection");
+  const list = document.getElementById("historyList");
+  if (history.length === 0) { section.style.display = "none"; return; }
+  section.style.display = "block";
+  list.innerHTML = history.slice(0, 8).map(t => `
+    <div class="history-item">
+      <div style="flex:1;min-width:0">
+        <div class="hi-title">${t.projectIcon} ${t.title}</div>
+        <div class="hi-meta">${t.projectLabel} · ${formatDate(t.dueDate, t.dueTime)}</div>
+      </div>
+      ${t.priority === "urgent" ? '<span class="hi-urgent">URGENT</span>' : ''}
+    </div>
+  `).join("");
+}
+
+function clearHistory() {
+  history = [];
+  localStorage.removeItem("vt_history");
+  renderHistory();
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────
+function showError(msg) { const el = document.getElementById("errorMsg"); el.textContent = msg; el.classList.add("show"); }
+function hideError() { document.getElementById("errorMsg").classList.remove("show"); }
+function resetAll() {
+  parsedTask = null;
+  hideResult();
+  hideError();
+  document.getElementById("manualRow").style.display = "flex";
+  document.getElementById("manualInput").value = "";
+  document.getElementById("micLabel").className = "mic-label";
+  document.getElementById("micLabel").textContent = "Appuie pour dicter";
+  renderHistory();
+}
+</script>
+</body>
+</html>
